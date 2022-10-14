@@ -1,6 +1,10 @@
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtSerialPort import QSerialPort, QSerialPortInfo
 from PyQt5.QtCore import QIODevice
+from ctypes import sizeof
+from struct import unpack
+from typing import Literal
+from unicodedata import decimal
 
 app = QtWidgets.QApplication([])
 ui = uic.loadUi("d.ui")
@@ -22,10 +26,18 @@ def onClose():
     serial.close()
 
 def onRead():
-    rx = str(serial.readLine())
+    rx =serial.read(2) # Ждет 2 байта на вход
+    # if len(rx) > 10:
+    #     rx = serial.readLine()
+    # if rx == b'':
+    #     rx = serial.readLine()
+    print(rx)
+    rx = unpack('h', rx) # Из bytearray преобразует в 10-е число
+    print(rx)
+    # rx = unpack('h',rx)
     # rxs = (str(rx, 'utf-8'))
     # data = rxs.split(',')
-    ui.lcdT.display(rx)
+    ui.lcdT.display(rx[0])
 
 def ledControl(val): # Код светодиода 0
     if val == 2: val = 1
