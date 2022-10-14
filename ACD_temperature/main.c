@@ -89,7 +89,7 @@ int main(void)
   MX_GPIO_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-HAL_ADC_Start(&hadc1);
+HAL_ADC_Start(&hadc1); //включаем ацп до входа в цикл
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -99,15 +99,16 @@ HAL_ADC_Start(&hadc1);
 		HAL_ADC_Start(&hadc1);
 		HAL_ADC_PollForConversion(&hadc1, 100);
 		HAL_ADC_Stop(&hadc1);
-		TemperatureValue = HAL_ADC_GetValue(&hadc1);
+		TemperatureValue = HAL_ADC_GetValue(&hadc1); // считываем значение с ацп
 		TemperatureValue *= 3300;
 		TemperatureValue /= 0xfff;
-		TemperatureValue /= 1000.0;
-		TemperatureValue -= 0.760;
+		TemperatureValue /= 1000.0; // Эти срочки отвечаю за преобразование значений с ацп в нормальный вид
+		TemperatureValue -= 0.760; // температуры в градуса ц-я
 		TemperatureValue /= .0025;
 		TemperatureValue += 25.0;
 		HAL_Delay(1000);
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7); // Моргаем свеодиодом, чтобы понимать, что температура считывется
+	  	                                       // в дебагере можем посмотреть, как меняется значение переменной TemperatureValue
 		
     /* USER CODE END WHILE */
 
