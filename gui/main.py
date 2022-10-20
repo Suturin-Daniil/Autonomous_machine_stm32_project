@@ -55,13 +55,17 @@ def serialSend(data):
 # def sendText():
 #     txs = 
 
+def servoWrite(val):
+    serialSend([1, val])
+
+
 
 serial.readyRead.connect(onRead)
 ui.openB.clicked.connect(onOpen)
 ui.closeB.clicked.connect(onClose)
 
 ui.ledC.stateChanged.connect(ledControl)
-# ui.servoC.valueChange.connect(servoControl)
+ui.servoSlider.valueChanged.conect(servoWrite)
 
 # ui.sendB.clicked.connect(sendText)
 
