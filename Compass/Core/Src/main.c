@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "math.h"
+#define M_PI 3.14159265359
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,11 +44,20 @@
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
-uint8_t cReg1[2] = {0x00, 0x70};
-uint8_t cReg2[2] = {0x01, 0xA0};
-uint8_t cReg3[2] = {0x02, 0x00};
+uint8_t cReg1[2] = {0x0B, 0x01};
+uint8_t cReg2[2] = {0x09, 0x1D};
+uint8_t cReg3[2] = {0x0B, 0x01};
 uint8_t data[6];
-uint8_t adress[2] = {0x06, 0x03};
+uint8_t adress[2] = {0x00, 0x02};
+
+int16_t X;
+int16_t Y;
+int16_t Z;
+
+float deg; // градусы
+
+int declination_degs = 12;  // Значения магнитного наклонения для 
+int declination_mins = 54;  // Долгопрудного
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,13 +103,18 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-	if(HAL_I2C_IsDeviceReady(&hi2c1, 0x3C, 1, 10) == HAL_OK)
+	
+	 
+  float declination_offset_radians = ( declination_degs + (1/60 * declination_mins)) * (M_PI / 180);  
+  float scale = 2.56;
+	
+	
+	if(HAL_I2C_IsDeviceReady(&hi2c1, 0x1A, 1, 10) == HAL_OK)
 	{
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 	}	
-HAL_I2C_Master_Transmit(&hi2c1, 0x3C, cReg1, 2, 10);
-HAL_I2C_Master_Transmit(&hi2c1, 0x3C, cReg2, 2, 10);
-HAL_I2C_Master_Transmit(&hi2c1, 0x3C, cReg3, 2, 10);
+HAL_I2C_Master_Transmit(&hi2c1, 0x1A, cReg1, 2, 10);
+HAL_I2C_Master_Transmit(&hi2c1, 0x1A, cReg2, 2, 10);
 HAL_Delay(6);
   /* USER CODE END 2 */
 
@@ -107,10 +122,28 @@ HAL_Delay(6);
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		HAL_I2C_Master_Transmit(&hi2c1, 0x3C, adress, 1, 10);
-		HAL_I2C_Master_Receive(&hi2c1, 0x3C, data, 6, 10);
-		//HAL_I2C_Master_Transmit(&hi2c1, 0x3C, &adress[1], 1, 10);
+		HAL_I2C_Master_Transmit(&hi2c1, 0x1A, &adress[0], 1, 10);
+		HAL_I2C_Master_Receive(&hi2c1, 0x1A, data, 6, 10);
 		HAL_Delay(67);
+		
+		X = (data[1]<<8) | data[0];
+		Y = (data[3]<<8) | data[2];
+		Z = (data[5]<<8) | data[4];
+		
+	float heading = atan2(X, Y);
+  heading -= declination_offset_radians; // declination is positive or EAST. So we have to subtract the angles.
+
+  // Correct for when signs are reversed.
+  if (heading < 0)
+    heading += 2 * M_PI;
+
+  // Check for wrap due to addition of declination.
+  if (heading > 2 * M_PI)
+    heading -= 2 * M_PI;
+
+  // Convert radians to degrees for readability.
+  deg = heading * 180 / M_PI;
+		
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
