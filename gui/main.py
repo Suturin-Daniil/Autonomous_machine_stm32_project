@@ -6,7 +6,7 @@ from PyQt5 import QtWidgets, uic
 from PyQt5.QtSerialPort import QSerialPort, QSerialPortInfo
 from PyQt5.QtCore import QIODevice
 from ctypes import sizeof
-from struct import unpack
+from struct import pack, unpack
 from typing import Literal
 from unicodedata import decimal
 
@@ -47,31 +47,38 @@ def ledControl(val): # Код светодиода 0
     if val == 2: val = 1
     serialSend([0, val])
 
-def serialSend(data):
-    txs = ""
-    for el in data:
-        txs += str(el)
-        # txs += ','
-    # txs = txs[:-1]
-    # txs += ';'
-    serial.write(txs.encode())
-
-# def sendText():
-#     txs = 
-
-def servoWrite(val):
+def servoWrite(): # код серво 1
+    val = int(ui.servoSlider.value())
     serialSend([1, val])
 
-
+def serialSend(data):
+    if data[0] == 0:
+        if data[1] == 1:
+        # led_int_to_bytes = pack('i', data[1])
+        # check_byte = pack('h', 0)
+        # print(check_byte[0], check_byte[1], led_int_to_bytes[0], led_int_to_bytes[1], led_int_to_bytes[2], led_int_to_bytes[3])
+        # led_list_bytes = [check_byte[0], check_byte[1], led_int_to_bytes[0], led_int_to_bytes[1], led_int_to_bytes[2], led_int_to_bytes[3]]
+        # led_bytearray = bytearray(led_list_bytes)
+        # print(led_bytearray)
+            serial.write(bytearray(b'\x00\x00\x01\x00\x00\x00'))
+        if data[1] == 0:
+            serial.write(bytearray(b'\x00\x00\x00\x00\x00\x00'))
+    if data[0] == 1:
+        servo_int_to_bytes = pack('i', data[1])
+        check_byte = pack('h', 1)
+        servo_list_bytes = [check_byte[0], check_byte[1], servo_int_to_bytes[0], servo_int_to_bytes[1], servo_int_to_bytes[2], servo_int_to_bytes[3]]
+        servo_bytearray = bytearray(servo_list_bytes)
+        serial.write(servo_bytearray)
+        
+    
 
 serial.readyRead.connect(onRead)
 ui.openB.clicked.connect(onOpen)
 ui.closeB.clicked.connect(onClose)
 
 ui.ledC.stateChanged.connect(ledControl)
-ui.servoSlider.valueChanged.conect(servoWrite)
+ui.servoSlider.valueChanged.connect(servoWrite)
 
-# ui.sendB.clicked.connect(sendText)
 
 
 ui.show()
