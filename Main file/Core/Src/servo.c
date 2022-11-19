@@ -13,6 +13,6 @@ void servoSetPosition(TIM_HandleTypeDef *htim, uint16_t x)
 
 void servoStop(TIM_HandleTypeDef *htim)
 {
-    htim->Instance->CCR1 = 1500;
+    htim->Instance->CCR3 = 1500;
     stopMachine();
 }
