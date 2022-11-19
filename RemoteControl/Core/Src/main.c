@@ -22,9 +22,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "i2c-lcd.h"
+#include "display.h"
+#include "joystick.h"
+#include "remoteControl.h"
 #include <math.h>
-#include <stdio.h>
+#include "stdlib.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,18 +52,15 @@ I2C_HandleTypeDef hi2c2;
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-float coef[4] = {0,0,-0.062,255};
-uint8_t sendData[2];
-uint16_t readValueX=0;
-uint16_t readValueY = 0;
-uint16_t currentTime = 0;
-char currentTimeChar;
-char time;
-uint8_t motor=0;
-uint8_t servo=0;
+uint8_t sendData[1]; // byte1,6 - check byte 0x7E; byte2,3 - data for servo and motor; byte4 - state; byte5 - check sum
+float c[4];
+uint8_t getData[1]; // byte1,5 - check byte 0x7E; byte2,3 - state and velocity; byte4 - check sum 
+uint8_t loseConnectionData[5] = {0x7E, 6, 255, 8, 0x7E};
+
+uint16_t Servo;
+uint16_t Step;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,7 +70,6 @@ static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_USART3_UART_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -79,129 +77,15 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void calibration(void)
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	uint16_t data[4];
-	
-	lcd_put_cur(0,0);
-	lcd_send_string("let's calibrate");
-	HAL_Delay(4000);
-	lcd_clear();
-	lcd_put_cur(0,0);
-	
-	while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_SET)
+	if (getData[0] == 0x7E && getData[4] == 0x7E && getData[3] == crc8(getData, 3))
 	{
-		lcd_send_string("put right stick");
-		lcd_put_cur(1, 4);
-		lcd_send_string("right");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0, 0);
-		lcd_send_string("whn u'l be ready");
-		lcd_put_cur(1,0);
-		lcd_send_string("hold usr btn");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0,0);
+		displayControl(&htim2, getData);
 	}
-	
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1,100);
-	readValueX = HAL_ADC_GetValue(&hadc1);
-	data[0] = readValueX;
-	HAL_ADC_Stop(&hadc1);
-	lcd_put_cur(0, 6);
-	lcd_send_string("OK");
-	HAL_Delay(2000);
-	
-	while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_SET)
-	{
-		lcd_put_cur(0,0);
-		lcd_send_string("put right stick");
-		lcd_put_cur(1, 4);
-		lcd_send_string("left");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0, 0);
-		lcd_send_string("whn u'l be ready");
-		lcd_put_cur(1,0);
-		lcd_send_string("hold usr btn");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0,0);
-	}
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1,100);
-	readValueX = HAL_ADC_GetValue(&hadc1);
-	data[1] = readValueX;
-	HAL_ADC_Stop(&hadc1);
-	lcd_put_cur(0, 6);
-	lcd_send_string("OK");
-	HAL_Delay(2000);
-	
-	while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_SET)
-	{
-		lcd_put_cur(0,0);
-		lcd_send_string("put left stick");
-		lcd_put_cur(1, 4);
-		lcd_send_string("up");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0, 0);
-		lcd_send_string("whn u'l be ready");
-		lcd_put_cur(1,0);
-		lcd_send_string("hold usr btn");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0,0);
-	}
-	HAL_ADC_Start(&hadc2);
-	HAL_ADC_PollForConversion(&hadc2,100);
-	readValueY = HAL_ADC_GetValue(&hadc2);
-	data[2] = readValueY;
-	HAL_ADC_Stop(&hadc2);
-	lcd_put_cur(0, 6);
-	lcd_send_string("OK");
-	HAL_Delay(2000);
-	
-	while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) != GPIO_PIN_SET)
-	{
-		lcd_put_cur(0,0);
-		lcd_send_string("put left stick");
-		lcd_put_cur(1, 4);
-		lcd_send_string("down");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0, 0);
-		lcd_send_string("whn u'l be ready");
-		lcd_put_cur(1,0);
-		lcd_send_string("hold usr btn");
-		HAL_Delay(2000);
-		lcd_clear();
-		lcd_put_cur(0,0);
-	}
-	HAL_ADC_Start(&hadc2);
-	HAL_ADC_PollForConversion(&hadc2,100);
-	readValueY = HAL_ADC_GetValue(&hadc2);
-	data[3] = readValueY;
-	HAL_ADC_Stop(&hadc2);
-	lcd_put_cur(0, 6);
-	lcd_send_string("OK");
-	HAL_Delay(1000);
-	lcd_clear();
-	lcd_put_cur(0,0);
-	
-		coef[0] = 255./(-data[0]+data[1]);
-		coef[1] = -coef[0]*data[1];
-		coef[2] = 255./(-data[2]+data[3]);
-		coef[3] = -coef[2]*data[3];
-		
-		lcd_send_string("calibration has");
-		lcd_put_cur(1,3);
-		lcd_send_string("been done");
-	  HAL_Delay(1000);
-		lcd_clear();
-}
+	else
+		displayControl(&htim2, loseConnectionData);
+}*/
 /* USER CODE END 0 */
 
 /**
@@ -236,19 +120,33 @@ int main(void)
   MX_ADC2_Init();
   MX_I2C2_Init();
   MX_USART2_UART_Init();
-  MX_USART3_UART_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 	HAL_ADC_Init(&hadc1);
 	HAL_ADC_Init(&hadc2);
-	HAL_TIM_Base_Start(&htim2);
 	lcd_init();
-	lcd_put_cur(0,4);
+	lcd_put_cur(0,5);
 	lcd_send_string("Hello");
 	HAL_Delay(2000);
 	lcd_clear();
-	lcd_put_cur(0,0);
-	//calibration();
+ 	lcd_put_cur(0,0);
+	
+	float* coef = calibration(&htim2, &hadc1, &hadc2); // do calibration and get conversion coefficients
+	c[0] = coef[0];
+	c[1] = coef[1];
+	c[2] = coef[2];
+	c[3] = coef[3];
+	
+	
+	//checkMachineStatus();
+	
+	lcd_send_string("State:");
+	lcd_put_cur(1,0);
+	lcd_send_string("Ve-ty:");
+	lcd_put_cur(1,9);
+	lcd_send_string("Tm:0:0");
+	
+	__HAL_TIM_SetCounter(&htim2, 0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -258,30 +156,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		currentTime = (TIM2->CNT)/1000;
-		lcd_put_cur(0,6);
-		if (currentTime <= 9) lcd_send_data(48+currentTime);
-		else
-		{
-			lcd_send_data(48+(currentTime/10));
-			lcd_send_data(48+(currentTime-currentTime/10*10));
-		}
+		Servo = getServoValue(&hadc1);
+		Step = getStepValue(&hadc2);
 		
-		HAL_ADC_Start(&hadc1);
-		HAL_ADC_PollForConversion(&hadc1, 10);
-		readValueX = HAL_ADC_GetValue(&hadc1);
-		HAL_ADC_Stop(&hadc1);
-		
-		HAL_ADC_Start(&hadc2);
-		HAL_ADC_PollForConversion(&hadc2, 10);  
-		readValueY = HAL_ADC_GetValue(&hadc2);
-		HAL_ADC_Stop(&hadc2);
-		
-		//sendData[0] = (int)(coef[0]*(float)readValueX + coef[1]);
-		sendData[0] = (int)(coef[2]*(float)readValueY + coef[3]);
-		//sendData[1] = currentTime;
-		//HAL_UART_Transmit(&huart2, "HELLO", 5, 100);
-		HAL_UART_Transmit(&huart2, sendData, 1, 10);
+		sendValue(&huart2, c, Servo, Step, sendData);
   }
   /* USER CODE END 3 */
 }
@@ -554,39 +432,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
-
-  /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -647,6 +492,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF11_ETH;
   HAL_GPIO_Init(RMII_TXD1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : STLK_RX_Pin STLK_TX_Pin */
+  GPIO_InitStruct.Pin = STLK_RX_Pin|STLK_TX_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
   /*Configure GPIO pin : USB_PowerSwitchOn_Pin */
   GPIO_InitStruct.Pin = USB_PowerSwitchOn_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -673,6 +526,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USB_VBUS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PC10 PC11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : RMII_TX_EN_Pin RMII_TXD0_Pin */
   GPIO_InitStruct.Pin = RMII_TX_EN_Pin|RMII_TXD0_Pin;

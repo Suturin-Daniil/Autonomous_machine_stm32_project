@@ -79,10 +79,11 @@ void microDelay (TIM_HandleTypeDef *htim, uint16_t delay)
 
 void stepSetValue(TIM_HandleTypeDef *htim, int steps, uint16_t y)
 {
-	uint16_t delay = setDelay(y);
+	uint16_t Step = (uint16_t)((float)y*16.06);
+	uint16_t delay = setDelay(Step);
 	if (delay == 0)
 		stopMachine();
-	else if (y >= 2048)
+	else if (Step >= 2048)
 		stepCCV(htim, steps, delay);
 	else
 		stepCV(htim, steps, delay);
