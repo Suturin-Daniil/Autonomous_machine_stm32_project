@@ -50,16 +50,14 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart4;
 
 /* USER CODE BEGIN PV */
-uint8_t str[] = {"Led on"};
-uint8_t str1[] = {"Led off"};
 uint16_t Servo;
 uint16_t Step;
-uint8_t man;
-uint8_t check_byte;
+
 uint8_t counter = 0;
 uint8_t sendData[1] = {1};
 uint8_t getData[1];
 uint8_t Data[6];
+uint8_t connection = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,6 +75,12 @@ static void MX_UART4_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) 
 	{
+		if (connection == 0) 
+		{
+			connection = 1;
+			return;
+		}
+		
 		Data[counter] = getData[0];
 		counter += 1;
 		
@@ -123,21 +127,26 @@ int main(void)
   MX_TIM3_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
-	//HAL_UART_Receive_IT(&huart4, arr, 6);
 	HAL_ADC_Start(&hadc1);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_Base_Start(&htim2);
+	
+	while (connection != 1)
+	{
+		HAL_UART_Receive_IT(&huart4, getData, 1);
+	}
+	HAL_UART_Transmit(&huart4, sendData, 1, 10);
+	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		HAL_UART_Receive_IT(&huart4, getData, 1);
-		//stepSetValue(&htim2, 3, adc_data[1]);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		HAL_UART_Receive_IT(&huart4, getData, 1);
   }
   /* USER CODE END 3 */
 }
