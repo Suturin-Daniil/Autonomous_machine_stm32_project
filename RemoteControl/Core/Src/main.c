@@ -56,11 +56,20 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint8_t sendData[1]; // byte1,6 - check byte 0x7E; byte2,3 - data for servo and motor; byte4 - state; byte5 - check sum
 float c[4];
+uint8_t send_check[6];
+
 uint8_t getData[1]; // byte1,5 - check byte 0x7E; byte2,3 - state and velocity; byte4 - check sum 
 uint8_t loseConnectionData[5] = {0x7E, 6, 255, 8, 0x7E};
 
+uint8_t connection = 0;
+uint8_t response[6];
+uint8_t counter = 0;
+uint8_t end_data_transmition = 0;
+
 uint16_t Servo;
 uint16_t Step;
+uint8_t buttonState = 0;
+uint8_t buttonCount = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,15 +86,17 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (getData[0] == 0x7E && getData[4] == 0x7E && getData[3] == crc8(getData, 3))
+	response[counter] = getData[0];
+	counter += 1;
+	
+	if (counter == 6)
 	{
-		displayControl(&htim2, getData);
+		counter = 0;
+		if (response[0] == response[5] && response[0] == 0x7E && response[4] == crc8(response, 4)) end_data_transmition = 1;
 	}
-	else
-		displayControl(&htim2, loseConnectionData);
-}*/
+}
 /* USER CODE END 0 */
 
 /**
@@ -137,16 +148,15 @@ int main(void)
 	c[2] = coef[2];
 	c[3] = coef[3];
 	
+	checkMachineStatus(&huart2);
 	
-	//checkMachineStatus();
-	
-	lcd_send_string("State:");
 	lcd_put_cur(1,0);
 	lcd_send_string("Ve-ty:");
 	lcd_put_cur(1,9);
 	lcd_send_string("Tm:0:0");
 	
 	__HAL_TIM_SetCounter(&htim2, 0);
+	end_data_transmition = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -156,10 +166,33 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		Servo = getServoValue(&hadc1);
-		Step = getStepValue(&hadc2);
-		
-		sendValue(&huart2, c, Servo, Step, sendData);
+	Servo = getServoValue(&hadc1);
+	Step = getStepValue(&hadc2);
+	buttonState = getStateButton();
+	if (buttonState == 2)
+	{
+		buttonCount += 1;
+	}
+	
+	if (buttonCount == 1)
+	{
+		sendValue(&huart2, c, Servo, Step, buttonState);
+		lcd_put_cur(0,2);
+		lcd_send_string("REVERSE MODE");
+		buttonCount += 1;
+		HAL_Delay(250);
+	}
+	
+	else if (buttonCount == 3)
+	{
+		sendValue(&huart2, c, Servo, Step, buttonState);
+		lcd_put_cur(0,0);
+		lcd_send_string("END REVERSE MODE");
+		while(end_data_transmition != 1) HAL_UART_Receive_IT(&huart2, getData, 1);
+		end_data_transmition = 0;
+	}
+	
+	else sendValue(&huart2, c, Servo, Step, buttonState);
   }
   /* USER CODE END 3 */
 }

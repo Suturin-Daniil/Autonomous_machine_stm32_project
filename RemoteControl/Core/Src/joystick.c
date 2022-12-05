@@ -20,9 +20,9 @@ float* calibration(TIM_HandleTypeDef* htim, ADC_HandleTypeDef* hadc_forServo, AD
 	lcd_clear();
 	lcd_put_cur(0,0);
 	
-	lcd_send_string("Set dflt set-gs?");
+	lcd_send_string("PRESS USR BTN TO");
 	lcd_put_cur(1,0);
-	lcd_send_string("press user btn");
+	lcd_send_string("SET CUSTOM STGS");
 	HAL_TIM_Base_Start(htim);
 	__HAL_TIM_SetCounter(htim, 0);
 	
@@ -223,19 +223,15 @@ uint16_t getStepValue(ADC_HandleTypeDef* hadc_forMotor)
 		return readValueY;
 }
 
-uint8_t* getStateButton(void)
+uint8_t getStateButton(void)
 {
-	uint8_t* buttonState = NULL;
-	buttonState = (uint8_t*)malloc(1);
-	
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) == GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) == GPIO_PIN_SET)
-		buttonState[0] = 1;
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) != GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_SET)
-		buttonState[0] = 0;
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) == GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_SET)
-		buttonState[0] = 2;
-	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) != GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) == GPIO_PIN_SET)
-		buttonState[0] = 3;
-	
-	return buttonState;
+	//if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) == GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) == GPIO_PIN_SET)
+		//buttonState[0] = 1;
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) != GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_RESET)
+		return 0;
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) == GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_RESET)
+		return 1;
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) != GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) == GPIO_PIN_RESET)
+		return 2;
+	return 0;
 }
