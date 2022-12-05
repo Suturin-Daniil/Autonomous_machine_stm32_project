@@ -25,6 +25,7 @@
 #include "step.h"
 #include "servo.h"
 #include "remoteControl.h"
+#include "Reverse.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +47,7 @@ ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart4;
 
@@ -54,10 +56,31 @@ uint16_t Servo;
 uint16_t Step;
 
 uint8_t counter = 0;
-uint8_t sendData[1] = {1};
+
+uint8_t sendData[1];
 uint8_t getData[1];
 uint8_t Data[6];
+
 uint8_t connection = 0;
+
+uint8_t Servo_array[1000] = {0};
+uint8_t Servo_reverse_array[1000] = {0};
+
+uint8_t Step_array[1000] = {0};
+uint8_t Step_reverse_array[1000] = {0};
+
+uint32_t Time_array[1000] = {0};
+uint32_t Time_reverse_array[1000] = {0};
+
+uint16_t sizeofArr = 0;
+
+uint32_t currentTime = 0;
+
+uint8_t ButtonCnt = 0;
+
+float c[4] = {0, 0, 0, 0};
+
+uint8_t DataStatus=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,6 +90,7 @@ static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_UART4_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -75,20 +99,18 @@ static void MX_UART4_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) 
 	{
-		if (connection == 0) 
-		{
-			connection = 1;
-			return;
-		}
-		
 		Data[counter] = getData[0];
 		counter += 1;
 		
 		if (counter == 6)
 		{
 			counter = 0;
-			stepSetValue(&htim2, 2, Data[2]);
-			servoSetPosition(&htim3, Data[1]);
+			if (Data[0] == Data[5] && Data[0] == 0x7E && Data[4] == crc8(Data, 4))
+				{
+				DataStatus = 1; // Data transmition has been ended and data is correct
+				if (connection == 0) connection = 1;
+				if (Data[3] == 2) ButtonCnt += 1;
+				}
 		}
 	}
 	
@@ -126,17 +148,22 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_UART4_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 	HAL_ADC_Start(&hadc1);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_Base_Start(&htim2);
+	HAL_TIM_Base_Start(&htim5);
 	
 	while (connection != 1)
 	{
 		HAL_UART_Receive_IT(&huart4, getData, 1);
 	}
-	HAL_UART_Transmit(&huart4, sendData, 1, 10);
-	HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+	HAL_Delay(100);
+	
+	sendValue(&huart4, c, 0, 0);
+	DataStatus = 0;
+	__HAL_TIM_SetCounter(&htim5, 0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -147,7 +174,28 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		HAL_UART_Receive_IT(&huart4, getData, 1);
+		
+		if (DataStatus == 1)
+		{
+		servoSetPosition(&htim3, Data[1]);
+		stepSetValue(&htim2, 2, Data[2]);
+		currentTime = TIM5->CNT;
+		
+		if (ButtonCnt == 1)
+		{
+			WrittingArr(Data[1], Data[2], currentTime);
+		}
+		
+		else if (ButtonCnt == 2)
+		{
+			servoStop(&htim3);
+			CreateReverseArr();
+			ProccesRevArr(&htim3, &htim2, &htim5);
+		}
+		}
+		DataStatus = 0;
   }
+
   /* USER CODE END 3 */
 }
 
@@ -347,6 +395,51 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 2 */
   HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 14400-1;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
 
 }
 

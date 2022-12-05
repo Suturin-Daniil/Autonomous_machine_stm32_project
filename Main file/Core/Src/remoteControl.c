@@ -1,10 +1,5 @@
 #include "remoteControl.h"
 
-void checkMachineStatus(void)
-{
-	
-}
-
 uint8_t crc8(uint8_t* buffer, uint8_t len)
 {
 	/*
@@ -30,18 +25,50 @@ uint8_t crc8(uint8_t* buffer, uint8_t len)
 	return crc;
 }
 
-void sendValue(UART_HandleTypeDef *huart, float* coef, uint16_t servoValue, uint16_t stepValue, uint8_t buffer[6])
+void sendValue(UART_HandleTypeDef *huart, float* coef, uint16_t servoValue, uint16_t stepValue)
 {
+	uint8_t crc_buf[4]; // buffer with data for check sum
+	uint8_t buffer[1];
+	
 	buffer[0] = 0x7E; // check byte
+	crc_buf[0] = buffer[0];
+	HAL_UART_Transmit(huart, buffer, 1, 10);
 	
-	buffer[1] = (uint8_t)(coef[0]*(float)servoValue + coef[1]); // convert servoValue to uint8_t type
+	buffer[0] = (uint8_t)(coef[0]*(float)servoValue + coef[1]); // convert servoValue to uint8_t type
+	crc_buf[1] = buffer[0];
+	HAL_UART_Transmit(huart, buffer, 1, 10);
 	
-	buffer[2] = (uint8_t)(coef[2]*(float)stepValue + coef[3]); // convert stepValue to uint8_t type
+	buffer[0] = (uint8_t)(coef[2]*(float)stepValue + coef[3]); // convert stepValue to uint8_t type
+	crc_buf[2] = buffer[0];
+	HAL_UART_Transmit(huart, buffer, 1, 10);
 	
-	buffer[4] = crc8(buffer, 4);
+	buffer[0] = 0;
+	crc_buf[3] = buffer[0];
+	HAL_UART_Transmit(huart, buffer, 1, 10);
 	
-	buffer[5] = 0x7E; // check byte
+	buffer[0] = crc8(crc_buf, 4); // create check sum by using crc8 method
+	HAL_UART_Transmit(huart, buffer, 1, 10);
+	
+	buffer[0] = 0x7E; // check byte
+	HAL_UART_Transmit(huart, buffer, 1, 10);
 		
-	if (HAL_UART_Transmit(huart, buffer, 6, 10) != HAL_BUSY)
-		HAL_UART_Transmit(huart, buffer, 6, 10);
+	HAL_Delay(75);
+}
+
+void ProccesRevArr(TIM_HandleTypeDef* servo_tim, TIM_HandleTypeDef* step_tim, TIM_HandleTypeDef* main_tim, UART_HandleTypeDef *huart)
+	{
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+		for(int i = 0; i < sizeofArr - 1; i++)
+		{
+			__HAL_TIM_SetCounter(main_tim, Time_reverse_array[i]);
+			while(main_tim->Instance->CNT != Time_reverse_array[i + 1])
+				{
+					servoSetPosition(servo_tim, Servo_reverse_array[i]);
+					stepSetValue(step_tim, 2, Step_reverse_array[i]);
+				}			
+		}
+	sizeofArr=0;
+	ButtonCnt=0;
+	float c[4] = {0,0,0,0};
+	sendValue(huart, c, 0, 0);
 }

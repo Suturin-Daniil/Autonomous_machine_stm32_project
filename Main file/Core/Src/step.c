@@ -77,7 +77,7 @@ void microDelay (TIM_HandleTypeDef *htim, uint16_t delay)
   while (__HAL_TIM_GET_COUNTER(htim) < delay);
 }
 
-void stepSetValue(TIM_HandleTypeDef *htim, int steps, uint16_t y)
+void stepSetValue(TIM_HandleTypeDef *htim, int steps, uint8_t y)
 {
 	uint16_t Step = (uint16_t)((float)y*16.06);
 	uint16_t delay = setDelay(Step);

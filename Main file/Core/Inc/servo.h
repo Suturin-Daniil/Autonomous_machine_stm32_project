@@ -3,6 +3,6 @@
 
 uint16_t obrabotka(uint16_t x);
 
-void servoSetPosition(TIM_HandleTypeDef *htim, uint16_t x);
+void servoSetPosition(TIM_HandleTypeDef *htim, uint8_t x);
 
 void servoStop(TIM_HandleTypeDef *htim);
