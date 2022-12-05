@@ -12,6 +12,6 @@
 void stopMachine(void);
 uint16_t setDelay(uint16_t y);
 void microDelay (TIM_HandleTypeDef *htim, uint16_t delay);
-void stepSetValue(TIM_HandleTypeDef *htim, int steps, uint16_t y);
+void stepSetValue(TIM_HandleTypeDef *htim, int steps, uint8_t y);
 void stepCCV (TIM_HandleTypeDef *htim, int steps, uint16_t delay); // CCV - Counter Clockwise;
 void stepCV (TIM_HandleTypeDef *htim, int steps, uint16_t delay); // CV - Clockwise

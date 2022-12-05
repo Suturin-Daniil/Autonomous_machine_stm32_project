@@ -8,4 +8,4 @@ uint16_t getServoValue(ADC_HandleTypeDef* hadc_forServo); // return joystick val
 
 uint16_t getStepValue(ADC_HandleTypeDef* hadc_forMotor); // return joystick value for step motor
 
-uint8_t* getStateButton(void); // check states of buttons 
+uint8_t getStateButton(void); // check states of buttons 

@@ -5,7 +5,7 @@ uint16_t obrabotka(uint16_t x)
     return (uint16_t)(0.244*(float)x+1000.);
 }
 
-void servoSetPosition(TIM_HandleTypeDef *htim, uint16_t x)
+void servoSetPosition(TIM_HandleTypeDef *htim, uint8_t x)
 {
 	uint16_t Servo = (uint16_t)((float)x*16.06);
   htim->Instance->CCR3 = obrabotka(Servo);
