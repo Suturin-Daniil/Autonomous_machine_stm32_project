@@ -10,17 +10,17 @@ extern uint8_t getData[1];
 extern uint8_t end_data_transmition;
 extern uint16_t sizeofArr;
 
-extern uint8_t Servo_array[1000];
-extern uint8_t Servo_reverse_array[1000] ;
+extern uint8_t Servo_array[5000];
+extern uint8_t Servo_reverse_array[5000] ;
 
-extern uint8_t Step_array[1000];
-extern uint8_t Step_reverse_array[1000];
+extern uint8_t Step_array[5000];
+extern uint8_t Step_reverse_array[5000];
 
-extern uint32_t Time_array[1000];
-extern uint32_t Time_reverse_array[1000];
+// extern uint32_t Time_array[5000];
+// extern uint32_t Time_reverse_array[5000];
 
 void sendValue(UART_HandleTypeDef *huart, float* coef, uint16_t servoValue, uint16_t stepValue); // send 6 byte data package
 
 uint8_t crc8(uint8_t* buffer, uint8_t len); // create check sum
 
-void ProccesRevArr(TIM_HandleTypeDef* servo_tim, TIM_HandleTypeDef* step_tim, TIM_HandleTypeDef* main_tim, UART_HandleTypeDef *huart);
+void ProccesRevArr(TIM_HandleTypeDef* servo_tim, TIM_HandleTypeDef* step_tim, TIM_HandleTypeDef* main_tim, UART_HandleTypeDef *huart); // reverse mode processing

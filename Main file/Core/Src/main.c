@@ -54,29 +54,26 @@ UART_HandleTypeDef huart4;
 /* USER CODE BEGIN PV */
 uint16_t Servo;
 uint16_t Step;
-
 uint8_t counter = 0;
 
 uint8_t sendData[1];
-uint8_t getData[1];
-uint8_t Data[6];
+uint8_t getData[1]; // array for received byte
+uint8_t Data[6]; // array for all received bytes. byte1,6 - check byte 0x7E; byte2,3 - data for servo and motor; byte4 - buttonState; byte5 - check sum
 
 uint8_t connection = 0;
 
-uint8_t Servo_array[1000] = {0};
-uint8_t Servo_reverse_array[1000] = {0};
+uint8_t Servo_array[5000] = {0};
+uint8_t Servo_reverse_array[5000] = {0};
 
-uint8_t Step_array[1000] = {0};
-uint8_t Step_reverse_array[1000] = {0};
+uint8_t Step_array[5000] = {0};
+uint8_t Step_reverse_array[5000] = {0};
 
-uint32_t Time_array[1000] = {0};
-uint32_t Time_reverse_array[1000] = {0};
+//uint32_t Time_array[3000] = {0};
+//uint32_t Time_reverse_array[3000] = {0};
 
-uint16_t sizeofArr = 0;
+uint16_t sizeofArr = 0; // size of servo and motor arrays
 
-uint32_t currentTime = 0;
-
-uint8_t ButtonCnt = 0;
+uint8_t ButtonCnt = 0; // How many times buttonState is 2
 
 float c[4] = {0, 0, 0, 0};
 
@@ -99,17 +96,17 @@ static void MX_TIM5_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) 
 	{
-		Data[counter] = getData[0];
+		Data[counter] = getData[0]; // receive data byte by byte and save in Data[6] array
 		counter += 1;
 		
-		if (counter == 6)
+		if (counter == 6) // when counter is 6 => all data has beeng received
 		{
 			counter = 0;
 			if (Data[0] == Data[5] && Data[0] == 0x7E && Data[4] == crc8(Data, 4))
 				{
-				DataStatus = 1; // Data transmition has been ended and data is correct
-				if (connection == 0) connection = 1;
-				if (Data[3] == 2) ButtonCnt += 1;
+				DataStatus = 1; // Data transmition has been ended and data are correct
+				if (connection == 0) connection = 1; // if this is the first data receiving, connection is 0
+				if (Data[3] == 2) ButtonCnt += 1; // Check buttonState
 				}
 		}
 	}
@@ -155,13 +152,13 @@ int main(void)
 	HAL_TIM_Base_Start(&htim2);
 	HAL_TIM_Base_Start(&htim5);
 	
-	while (connection != 1)
+	while (connection != 1) // wait for data package to establish connection
 	{
 		HAL_UART_Receive_IT(&huart4, getData, 1);
 	}
 	HAL_Delay(100);
 	
-	sendValue(&huart4, c, 0, 0);
+	sendValue(&huart4, c, 0, 0); // send response to remote control
 	DataStatus = 0;
 	__HAL_TIM_SetCounter(&htim5, 0);
   /* USER CODE END 2 */
@@ -175,25 +172,23 @@ int main(void)
     /* USER CODE BEGIN 3 */
 		HAL_UART_Receive_IT(&huart4, getData, 1);
 		
-		if (DataStatus == 1)
+		if (DataStatus == 1) // if data is correct
 		{
-		servoSetPosition(&htim3, Data[1]);
-		stepSetValue(&htim2, 2, Data[2]);
-		currentTime = TIM5->CNT;
+		if (ButtonCnt == 2) // if the button on the remote has been pressed twice => stop reverse mode
+		{										// if ButtonCnt is 1 => start data aggregation in stepSetValue function in microDelay subfunction in step.c library
+			servoStop(&htim3);
+			CreateReverseArr(); // create array with reverse servo and motor values
+			ProccesRevArr(&htim3, &htim2, &htim5, &huart4); // reverse array processing
+		}
+		servoSetPosition(&htim3, Data[1]); 
+		stepSetValue(&htim2, 3, Data[2]); 
 		
-		if (ButtonCnt == 1)
+		/**if (ButtonCnt == 1)
 		{
 			WrittingArr(Data[1], Data[2], currentTime);
-		}
-		
-		else if (ButtonCnt == 2)
-		{
-			servoStop(&htim3);
-			CreateReverseArr();
-			ProccesRevArr(&htim3, &htim2, &htim5);
-		}
-		}
+		}**/
 		DataStatus = 0;
+		}
   }
 
   /* USER CODE END 3 */
@@ -459,7 +454,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 9600;
+  huart4.Init.BaudRate = 19200;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
