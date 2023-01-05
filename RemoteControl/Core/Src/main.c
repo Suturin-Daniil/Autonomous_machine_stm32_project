@@ -49,27 +49,26 @@ ADC_HandleTypeDef hadc2;
 
 I2C_HandleTypeDef hi2c2;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint8_t sendData[1]; // byte1,6 - check byte 0x7E; byte2,3 - data for servo and motor; byte4 - state; byte5 - check sum
-float c[4];
-uint8_t send_check[6];
+uint8_t sendData[1]; // byte1,6 - check byte 0x7E; byte2,3 - data for servo and motor; byte4 - buttonState; byte5 - check sum
+float c[4]; // array for joysticks conversion coefficients
 
-uint8_t getData[1]; // byte1,5 - check byte 0x7E; byte2,3 - state and velocity; byte4 - check sum 
-uint8_t loseConnectionData[5] = {0x7E, 6, 255, 8, 0x7E};
+uint8_t getData[1]; // receiving data byte from machine, which is putted in uint8_t response[6] array
 
-uint8_t connection = 0;
-uint8_t response[6];
-uint8_t counter = 0;
-uint8_t end_data_transmition = 0;
+uint8_t response[6]; // byte1,5 - check byte 0x7E; byte2,3 - state and velocity; byte4 - check sum
+uint8_t counter = 0; // counter for amount of received data bytes
+uint8_t end_data_transmition = 0; // if this variable is 0 - data is receiving or broken, 1 - data have been received well
 
-uint16_t Servo;
-uint16_t Step;
-uint8_t buttonState = 0;
-uint8_t buttonCount = 0;
+uint16_t Servo; // variables for servo and motor values from adc
+uint16_t Step; //
+
+uint8_t buttonState = 0; // if it is 0 - all button unpressed; 2 - left joystick is pressed => buttonCount+=1 => reverse mod is started; 1 - right joystick is pressed
+uint8_t buttonCount = 0; // button counter, which is used to know when should start or stop reverse mod
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -80,6 +79,7 @@ static void MX_ADC2_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -96,6 +96,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		counter = 0;
 		if (response[0] == response[5] && response[0] == 0x7E && response[4] == crc8(response, 4)) end_data_transmition = 1;
 	}
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){}
+	
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if(htim->Instance == TIM1) //check if the interrupt comes from TIM1
+  {
+		sendValue(&huart2, c, 0,0,0);
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+  }
 }
 /* USER CODE END 0 */
 
@@ -132,6 +143,7 @@ int main(void)
   MX_I2C2_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 	HAL_ADC_Init(&hadc1);
 	HAL_ADC_Init(&hadc2);
@@ -144,11 +156,11 @@ int main(void)
 	
 	float* coef = calibration(&htim2, &hadc1, &hadc2); // do calibration and get conversion coefficients
 	c[0] = coef[0];
-	c[1] = coef[1];
+	c[1] = coef[1]; // save calibration coefficients in c[4] array
 	c[2] = coef[2];
 	c[3] = coef[3];
 	
-	checkMachineStatus(&huart2);
+	checkMachineStatus(&huart2, &htim1); // send check data package to verify machine status
 	
 	lcd_put_cur(1,0);
 	lcd_send_string("Ve-ty:");
@@ -166,33 +178,41 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	Servo = getServoValue(&hadc1);
-	Step = getStepValue(&hadc2);
-	buttonState = getStateButton();
-	if (buttonState == 2)
-	{
-		buttonCount += 1;
-	}
-	
-	if (buttonCount == 1)
-	{
-		sendValue(&huart2, c, Servo, Step, buttonState);
-		lcd_put_cur(0,2);
-		lcd_send_string("REVERSE MODE");
-		buttonCount += 1;
-		HAL_Delay(250);
-	}
-	
-	else if (buttonCount == 3)
-	{
-		sendValue(&huart2, c, Servo, Step, buttonState);
-		lcd_put_cur(0,0);
-		lcd_send_string("END REVERSE MODE");
-		while(end_data_transmition != 1) HAL_UART_Receive_IT(&huart2, getData, 1);
-		end_data_transmition = 0;
-	}
-	
-	else sendValue(&huart2, c, Servo, Step, buttonState);
+		Servo = getServoValue(&hadc1); //
+		Step = getStepValue(&hadc2);   // get servo, step value and button state
+		buttonState = getStateButton();//
+		
+		if (buttonState == 2)
+		{
+			buttonCount += 1;
+		}
+		
+		if (buttonCount == 1) // it is mean we should START data aggregation in machine for reverse mod
+		{
+			sendValue(&huart2, c, Servo, Step, buttonState);
+			lcd_put_cur(0,2);
+			lcd_send_string("REVERSE MODE");
+			buttonCount += 1;
+			HAL_Delay(600);
+		}
+		
+		else if (buttonCount == 3) // it is mean we should STOP data aggregation in machine for reverse mod
+		{													
+			sendValue(&huart2, c, Servo, Step, buttonState);
+			lcd_put_cur(0,0);
+			lcd_send_string("END REVERSE MODE");
+			while(end_data_transmition != 1) HAL_UART_Receive_IT(&huart2, getData, 1);
+			end_data_transmition = 0;
+			buttonCount = 0;
+			lcd_clear();
+			lcd_put_cur(1,0);
+			lcd_send_string("Ve-ty:");
+			lcd_put_cur(1,9);
+			lcd_send_string("Tm:0:0");
+			HAL_Delay(10);
+		}
+		
+		else sendValue(&huart2, c, Servo, Step, buttonState);
   }
   /* USER CODE END 3 */
 }
@@ -387,6 +407,52 @@ static void MX_I2C2_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 36000-1;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 4000-1;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -447,7 +513,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 9600;
+  huart2.Init.BaudRate = 19200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;

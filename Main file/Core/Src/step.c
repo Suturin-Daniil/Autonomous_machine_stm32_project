@@ -1,5 +1,6 @@
 #include "step.h"
-
+uint8_t flag = 0; // is used for indicate servo and motor value saving by using WrittingArr function
+									// if flag is 0 servo and motor values have not been placed in array 
 void stopMachine(void)
 {
 		HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);   // IN1
@@ -11,10 +12,12 @@ void stopMachine(void)
 uint16_t setDelay(uint16_t y)
 {
 	uint16_t delay;
-	if ( (y > 2048 && y <= 2192) || (y > 1904 && y <= 2048) )
-		delay = 0;
+	if ( (y > 2048 && y <= 2292) || (y > 1804 && y <= 2048) ) // if joystick is in the middle position => machine doesn't move
+		delay = 0; // if delay is 0 => stopMachine()
 	
-	else if (y > 2192 && y <= 2336)
+	else if ( (y > 2292) || (y <= 1804) ) // We use only one motor rate, so if joystick isn't in the middle position => delay = 1000
+		delay = 1000;
+	/**else if (y > 2192 && y <= 2336)
 		delay = 2848;
 	else if (y > 2336 && y <= 2480)
 		delay = 2694;
@@ -67,30 +70,41 @@ uint16_t setDelay(uint16_t y)
 		delay = 1154;
 	else if (y >= 0. && y <= 176)
 		delay = 1000;
-	
+	**/
 	return delay;
 }
 
-void microDelay (TIM_HandleTypeDef *htim, uint16_t delay)
-{
+void microDelay (TIM_HandleTypeDef *htim, uint16_t delay) // in StepCV and StepCCV functions we use microdelay which takes 1 msec
+{																													// using this time we can put servo and motor values in array if reverse mod is enabled
 	__HAL_TIM_SET_COUNTER(htim, 0);
-  while (__HAL_TIM_GET_COUNTER(htim) < delay);
+  while (__HAL_TIM_GET_COUNTER(htim) < delay)
+	{
+		if (flag == 0)
+		{
+		if (ButtonCnt == 1)
+		{
+			WrittingArr(Data[1], Data[2]);
+		}
+		flag = 1; // flag is 1 => servo and motor value have been placed in array
+	}
+	}
 }
 
 void stepSetValue(TIM_HandleTypeDef *htim, int steps, uint8_t y)
 {
-	uint16_t Step = (uint16_t)((float)y*16.06);
+	uint16_t Step = (uint16_t)((float)y*16.06); // converte joystick value to [0;4095]
 	uint16_t delay = setDelay(Step);
 	if (delay == 0)
 		stopMachine();
-	else if (Step >= 2048)
+	else if (Step > 2292)
 		stepCCV(htim, steps, delay);
-	else
+	else if (Step <= 1804)
 		stepCV(htim, steps, delay);
 }
 
 void stepCCV (TIM_HandleTypeDef *htim, int steps, uint16_t delay) // CCV - Counter Clockwise
 {
+	flag = 0;
   for(int x=0; x<steps; x=x+1)
   {
     HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);   // IN1
@@ -138,6 +152,7 @@ void stepCCV (TIM_HandleTypeDef *htim, int steps, uint16_t delay) // CCV - Count
 
 void stepCV (TIM_HandleTypeDef *htim, int steps, uint16_t delay) // CV - Clockwise
 {
+	flag = 0;
   for(int x=0; x<steps; x=x+1)
   {
     HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);   // IN1

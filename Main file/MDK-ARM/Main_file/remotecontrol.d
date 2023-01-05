@@ -36,5 +36,7 @@ main_file\remotecontrol.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim
 main_file\remotecontrol.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 main_file\remotecontrol.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 main_file\remotecontrol.o: ..\Core\Inc\step.h
+main_file\remotecontrol.o: ..\Core\Inc\Reverse.h
 main_file\remotecontrol.o: ..\Core\Inc\servo.h
 main_file\remotecontrol.o: ..\Core\Inc\step.h
+main_file\remotecontrol.o: ..\Core\Inc\Reverse.h

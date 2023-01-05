@@ -225,8 +225,6 @@ uint16_t getStepValue(ADC_HandleTypeDef* hadc_forMotor)
 
 uint8_t getStateButton(void)
 {
-	//if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) == GPIO_PIN_SET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) == GPIO_PIN_SET)
-		//buttonState[0] = 1;
 	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) != GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_RESET)
 		return 0;
 	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_10) == GPIO_PIN_RESET && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11) != GPIO_PIN_RESET)
